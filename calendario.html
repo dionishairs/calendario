@@ -115,7 +115,8 @@ async function loadAvailability(from, to) {
     `${WEBHOOK_URL}?from=${from}&to=${to}&servicio=60`
   );
   const data = await res.json();
-  availability = data[0].days;|| {};
+  availability = data[0].days;
+
   paintCalendarDays();
 }
 
