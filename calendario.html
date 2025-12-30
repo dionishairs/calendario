@@ -2,19 +2,23 @@
 <html lang="es">
 <head>
   <meta charset="UTF-8" />
-  <title>Disponibilidad | Agenda</title>
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Agenda | Disponibilidad</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
 
   <!-- Fuente -->
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600&display=swap" rel="stylesheet">
+
+  <!-- FullCalendar -->
+  <link href="https://cdn.jsdelivr.net/npm/fullcalendar@6.1.11/index.global.min.css" rel="stylesheet">
+  <script src="https://cdn.jsdelivr.net/npm/fullcalendar@6.1.11/index.global.min.js"></script>
 
   <style>
     :root {
       --bg: #f6f7f9;
       --card: #ffffff;
       --primary: #2f8f83;
-      --muted: #a0a6ad;
-      --text: #1f2933;
+      --muted: #9ca3af;
+      --text: #1f2937;
       --border: #e5e7eb;
     }
 
@@ -26,94 +30,37 @@
     body {
       margin: 0;
       background: var(--bg);
-      color: var(--text);
       padding: 16px;
+      color: var(--text);
     }
 
     header {
-      margin-bottom: 20px;
-    }
-
-    header h1 {
-      font-size: 1.4rem;
-      margin: 0;
-    }
-
-    header p {
-      color: var(--muted);
-      margin: 4px 0 0;
-    }
-
-    /* ===== SERVICIOS ===== */
-    .services {
-      display: flex;
-      gap: 12px;
-      overflow-x: auto;
-      margin-bottom: 20px;
-    }
-
-    .service {
-      min-width: 140px;
-      background: var(--card);
-      border: 2px solid var(--border);
-      border-radius: 12px;
-      padding: 12px;
-      cursor: pointer;
-      transition: 0.2s;
-    }
-
-    .service.active {
-      border-color: var(--primary);
-      background: #e6f4f1;
-    }
-
-    .service strong {
-      display: block;
-      font-size: 0.95rem;
-    }
-
-    .service span {
-      font-size: 0.8rem;
-      color: var(--muted);
-    }
-
-    /* ===== DÍAS ===== */
-    .days {
-      display: flex;
-      gap: 10px;
-      overflow-x: auto;
       margin-bottom: 16px;
     }
 
-    .day {
-      background: var(--card);
-      border: 1px solid var(--border);
-      border-radius: 10px;
-      padding: 10px 14px;
-      cursor: pointer;
-      white-space: nowrap;
+    header h1 {
+      margin: 0;
+      font-size: 1.4rem;
     }
 
-    .day.active {
-      background: var(--primary);
-      color: white;
-      border-color: var(--primary);
+    header p {
+      margin: 4px 0 0;
+      color: var(--muted);
     }
 
-    /* ===== HORAS ===== */
-    .slots {
+    .card {
       background: var(--card);
       border-radius: 14px;
       padding: 12px;
+      margin-bottom: 16px;
     }
 
+    /* Slots */
     .slot {
       display: flex;
       justify-content: space-between;
-      align-items: center;
       padding: 12px;
       border-bottom: 1px solid var(--border);
-      font-size: 0.95rem;
     }
 
     .slot:last-child {
@@ -143,6 +90,16 @@
       background: #f1f1f1;
       color: var(--muted);
     }
+
+    /* FullCalendar tweaks */
+    .fc {
+      --fc-border-color: var(--border);
+      --fc-button-bg-color: var(--primary);
+      --fc-button-border-color: var(--primary);
+      --fc-button-hover-bg-color: #256f66;
+      --fc-button-active-bg-color: #256f66;
+      --fc-today-bg-color: #e6f4f1;
+    }
   </style>
 </head>
 <body>
@@ -152,103 +109,84 @@
   <p>Agenda sincronizada en tiempo real</p>
 </header>
 
-<!-- SERVICIOS -->
-<div class="services" id="services">
-  <!-- JS -->
+<!-- CALENDARIO -->
+<div class="card">
+  <div id="calendar"></div>
 </div>
 
-<!-- DÍAS -->
-<div class="days" id="days">
-  <!-- JS -->
-</div>
-
-<!-- HORAS -->
-<div class="slots" id="slots">
-  <!-- JS -->
+<!-- HORAS DEL DÍA -->
+<div class="card">
+  <h3 id="selectedDayTitle">Selecciona un día</h3>
+  <div id="slots"></div>
 </div>
 
 <script>
-/* ===== DATOS MOCK (luego vienen de n8n) ===== */
+/* ===== MOCK (luego viene de n8n) ===== */
 
-const services = [
-  { id: "fisio", name: "Fisioterapia", duration: 60 },
-  { id: "masaje", name: "Masaje deportivo", duration: 45 },
-  { id: "readap", name: "Readaptación", duration: 30 }
+// Eventos ocupados (simulan Google Calendar)
+const events = [
+  {
+    title: 'Ocupado',
+    start: '2025-04-16T11:00:00',
+    end: '2025-04-16T12:00:00'
+  },
+  {
+    title: 'Ocupado',
+    start: '2025-04-17T10:00:00',
+    end: '2025-04-17T11:30:00'
+  }
 ];
 
-const availability = {
-  "2025-04-15": [
-    { time: "09:00", free: true },
-    { time: "10:00", free: true },
-    { time: "11:00", free: false },
-    { time: "12:00", free: true },
-    { time: "13:00", free: true }
-  ],
-  "2025-04-16": [
-    { time: "10:00", free: true },
-    { time: "11:00", free: false },
-    { time: "12:00", free: false },
-    { time: "13:00", free: true }
-  ]
-};
+// Disponibilidad base por día
+const baseSlots = [
+  "09:00", "10:00", "11:00", "12:00", "13:00", "16:00", "17:00"
+];
 
-/* ===== RENDER ===== */
+/* ===== CALENDARIO ===== */
 
-let selectedService = services[0].id;
-let selectedDay = Object.keys(availability)[0];
+document.addEventListener('DOMContentLoaded', function () {
+  const calendarEl = document.getElementById('calendar');
 
-const servicesEl = document.getElementById("services");
-const daysEl = document.getElementById("days");
-const slotsEl = document.getElementById("slots");
-
-function renderServices() {
-  servicesEl.innerHTML = "";
-  services.forEach(s => {
-    const div = document.createElement("div");
-    div.className = "service" + (s.id === selectedService ? " active" : "");
-    div.innerHTML = `<strong>${s.name}</strong><span>${s.duration} min</span>`;
-    div.onclick = () => {
-      selectedService = s.id;
-      renderServices();
-    };
-    servicesEl.appendChild(div);
+  const calendar = new FullCalendar.Calendar(calendarEl, {
+    initialView: 'dayGridMonth',
+    locale: 'es',
+    height: 'auto',
+    selectable: false,
+    events: events,
+    dateClick: function(info) {
+      renderSlots(info.dateStr);
+    }
   });
-}
 
-function renderDays() {
-  daysEl.innerHTML = "";
-  Object.keys(availability).forEach(day => {
-    const div = document.createElement("div");
-    div.className = "day" + (day === selectedDay ? " active" : "");
-    div.textContent = day;
-    div.onclick = () => {
-      selectedDay = day;
-      renderDays();
-      renderSlots();
-    };
-    daysEl.appendChild(div);
-  });
-}
+  calendar.render();
+});
 
-function renderSlots() {
+/* ===== RENDER SLOTS ===== */
+
+function renderSlots(dateStr) {
+  const slotsEl = document.getElementById("slots");
+  const titleEl = document.getElementById("selectedDayTitle");
+
+  titleEl.textContent = "Horas disponibles · " + dateStr;
   slotsEl.innerHTML = "";
-  availability[selectedDay].forEach(slot => {
+
+  baseSlots.forEach(time => {
+    const isBusy = events.some(e =>
+      e.start.startsWith(dateStr) &&
+      e.start.includes(time)
+    );
+
     const div = document.createElement("div");
-    div.className = "slot " + (slot.free ? "free" : "busy");
+    div.className = "slot " + (isBusy ? "busy" : "free");
     div.innerHTML = `
-      <span>${slot.time}</span>
-      <span class="badge ${slot.free ? "free" : "busy"}">
-        ${slot.free ? "Disponible" : "Ocupado"}
+      <span>${time}</span>
+      <span class="badge ${isBusy ? "busy" : "free"}">
+        ${isBusy ? "Ocupado" : "Disponible"}
       </span>
     `;
     slotsEl.appendChild(div);
   });
 }
-
-/* INIT */
-renderServices();
-renderDays();
-renderSlots();
 </script>
 
 </body>
