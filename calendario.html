@@ -60,6 +60,7 @@
       justify-content: space-between;
       padding: 12px;
       border-bottom: 1px solid var(--border);
+      cursor: pointer;
     }
 
     .slot:last-child {
@@ -70,12 +71,35 @@
       color: var(--primary);
     }
 
+    .slot.selected {
+      background: #e6f4f1;
+      font-weight: 600;
+    }
+
     .badge {
       font-size: 0.75rem;
       padding: 4px 10px;
       border-radius: 999px;
       background: #e6f4f1;
       color: var(--primary);
+    }
+
+    button {
+      width: 100%;
+      padding: 14px;
+      border-radius: 12px;
+      border: none;
+      background: var(--primary);
+      color: white;
+      font-size: 1rem;
+      font-weight: 600;
+      cursor: pointer;
+      margin-top: 12px;
+    }
+
+    button:disabled {
+      background: #cbd5e1;
+      cursor: not-allowed;
     }
 
     .fc {
@@ -102,18 +126,23 @@
 <div class="card">
   <h3 id="selectedDayTitle">Selecciona un día</h3>
   <div id="slots"></div>
+  <button id="reserveBtn" style="display:none;">Reservar</button>
 </div>
 
 <script>
-const WEBHOOK_URL = "https://dionis-n8n.2vscvg.easypanel.host/webhook/calendario";
+const WEBHOOK_CALENDARIO = "https://dionis-n8n.2vscvg.easypanel.host/webhook/calendario";
+const WEBHOOK_RESERVAR   = "https://dionis-n8n.2vscvg.easypanel.host/webhook/reservar";
 
 let availability = {};
 let calendar;
 
+let selectedDay = null;
+let selectedTime = null;
+
 /* ===== CARGAR DISPONIBILIDAD ===== */
 async function loadAvailability(from, to) {
   const res = await fetch(
-    `${WEBHOOK_URL}?from=${from}&to=${to}&servicio=60`
+    `${WEBHOOK_CALENDARIO}?from=${from}&to=${to}&servicio=60`
   );
 
   const data = await res.json();
@@ -157,24 +186,66 @@ function paintCalendarDays() {
 function renderSlots(day) {
   const slotsEl = document.getElementById("slots");
   const titleEl = document.getElementById("selectedDayTitle");
+  const btn = document.getElementById("reserveBtn");
+
+  selectedDay = null;
+  selectedTime = null;
+  btn.style.display = "none";
 
   titleEl.textContent = "Horas disponibles · " + day;
   slotsEl.innerHTML = "";
 
-  if (!availability || !availability[day] || availability[day].length === 0) {
+  if (!availability[day] || availability[day].length === 0) {
     slotsEl.innerHTML = "<p>No hay disponibilidad</p>";
     return;
   }
 
   availability[day].forEach(time => {
-    slotsEl.innerHTML += `
-      <div class="slot free">
-        <span>${time}</span>
-        <span class="badge">Disponible</span>
-      </div>
+    const div = document.createElement("div");
+    div.className = "slot free";
+    div.innerHTML = `
+      <span>${time}</span>
+      <span class="badge">Disponible</span>
     `;
+    div.onclick = () => selectSlot(div, day, time);
+    slotsEl.appendChild(div);
   });
 }
+
+/* ===== SELECCIONAR SLOT ===== */
+function selectSlot(el, day, time) {
+  document.querySelectorAll(".slot").forEach(s => s.classList.remove("selected"));
+  el.classList.add("selected");
+
+  selectedDay = day;
+  selectedTime = time;
+
+  document.getElementById("selectedDayTitle").textContent =
+    `Reserva · ${day} a las ${time}`;
+
+  document.getElementById("reserveBtn").style.display = "block";
+}
+
+/* ===== RESERVAR ===== */
+async function reserveSlot() {
+  if (!selectedDay || !selectedTime) return;
+
+  const payload = {
+    day: selectedDay,
+    time: selectedTime,
+    service: 60
+  };
+
+  await fetch(WEBHOOK_RESERVAR, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(payload)
+  });
+
+  alert("Reserva enviada. Te confirmaremos por WhatsApp.");
+}
+
+document.getElementById("reserveBtn").onclick = reserveSlot;
 
 /* ===== INIT CALENDAR ===== */
 document.addEventListener('DOMContentLoaded', function () {
@@ -185,14 +256,12 @@ document.addEventListener('DOMContentLoaded', function () {
     locale: 'es',
     height: 'auto',
 
-    // 🔴 AQUÍ ESTÁ EL CAMBIO IMPORTANTE
     datesSet: function(info) {
       const today = new Date();
       today.setHours(0,0,0,0);
 
       const start = new Date(info.startStr);
       const end   = new Date(info.endStr);
-
       const fromDate = start < today ? today : start;
 
       const from =
