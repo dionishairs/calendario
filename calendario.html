@@ -130,6 +130,10 @@
 </div>
 
 <script>
+/* ================== UID DESDE WHATSAPP ================== */
+const params = new URLSearchParams(window.location.search);
+const userId = params.get("uid"); // ← ID del workflow de conversación
+
 const WEBHOOK_CALENDARIO = "https://dionis-n8n.2vscvg.easypanel.host/webhook/calendario";
 const WEBHOOK_RESERVAR   = "https://dionis-n8n.2vscvg.easypanel.host/webhook/reservar";
 
@@ -228,9 +232,13 @@ function selectSlot(el, day, time) {
 
 /* ===== RESERVAR ===== */
 async function reserveSlot() {
-  if (!selectedDay || !selectedTime) return;
+  if (!selectedDay || !selectedTime || !userId) {
+    alert("No se ha podido identificar al usuario.");
+    return;
+  }
 
   const payload = {
+    userId: userId,      // ← CLAVE PARA UNIR WORKFLOWS
     day: selectedDay,
     time: selectedTime,
     service: 60
@@ -288,4 +296,5 @@ document.addEventListener('DOMContentLoaded', function () {
 
 </body>
 </html>
+
 
