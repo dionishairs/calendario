@@ -156,7 +156,12 @@ function renderSlots(day) {
   titleEl.textContent = "Horas disponibles · " + day;
   slotsEl.innerHTML = "";
 
-  const slots = availability[day] || [];
+  if (!availability || !availability[day]) {
+    slotsEl.innerHTML = "<p>No hay disponibilidad</p>";
+    return;
+  }
+
+  const slots = availability[day];
 
   if (!slots.length) {
     slotsEl.innerHTML = "<p>No hay disponibilidad</p>";
@@ -172,6 +177,7 @@ function renderSlots(day) {
     `;
   });
 }
+
 
 /* ===== INIT CALENDAR ===== */
 document.addEventListener('DOMContentLoaded', function () {
