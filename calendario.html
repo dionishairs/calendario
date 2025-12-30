@@ -124,7 +124,7 @@ function paintCalendarDays() {
   calendar.removeAllEvents();
 
   Object.keys(availability).forEach(day => {
-    if (availability[day].length > 0) {
+    if (availability[day] && availability[day].length > 0) {
       calendar.addEvent({
         start: day,
         display: "background",
@@ -133,6 +133,7 @@ function paintCalendarDays() {
     }
   });
 }
+
 
 /* ===== RENDER SLOTS ===== */
 function renderSlots(day) {
