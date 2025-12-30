@@ -135,7 +135,6 @@ function paintCalendarDays() {
   Object.keys(availability).forEach(day => {
     if (availability[day] && availability[day].length > 0) {
 
-      // calcular día siguiente SIN UTC
       const [y, m, d] = day.split("-").map(Number);
       const endDate = new Date(y, m - 1, d + 1);
       const endDay =
@@ -186,11 +185,27 @@ document.addEventListener('DOMContentLoaded', function () {
     locale: 'es',
     height: 'auto',
 
+    // 🔴 AQUÍ ESTÁ EL CAMBIO IMPORTANTE
     datesSet: function(info) {
-      loadAvailability(
-        info.startStr.slice(0,10),
-        info.endStr.slice(0,10)
-      );
+      const today = new Date();
+      today.setHours(0,0,0,0);
+
+      const start = new Date(info.startStr);
+      const end   = new Date(info.endStr);
+
+      const fromDate = start < today ? today : start;
+
+      const from =
+        fromDate.getFullYear() + "-" +
+        String(fromDate.getMonth() + 1).padStart(2, "0") + "-" +
+        String(fromDate.getDate()).padStart(2, "0");
+
+      const to =
+        end.getFullYear() + "-" +
+        String(end.getMonth() + 1).padStart(2, "0") + "-" +
+        String(end.getDate()).padStart(2, "0");
+
+      loadAvailability(from, to);
     },
 
     dateClick: function(info) {
