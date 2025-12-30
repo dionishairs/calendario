@@ -128,9 +128,15 @@ function paintCalendarDays() {
 
   Object.keys(availability).forEach(day => {
     if (availability[day] && availability[day].length > 0) {
+
+      // calcular día siguiente (end exclusivo)
+      const endDate = new Date(day);
+      endDate.setDate(endDate.getDate() + 1);
+      const endDay = endDate.toISOString().slice(0, 10);
+
       calendar.addEvent({
         start: day,
-        end: day,
+        end: endDay,
         allDay: true,
         display: "background",
         backgroundColor: "#e6f4f1"
@@ -138,6 +144,7 @@ function paintCalendarDays() {
     }
   });
 }
+
 
 
 
