@@ -122,18 +122,23 @@ async function loadAvailability(from, to) {
 
 /* ===== PINTAR DÍAS CON DISPONIBILIDAD ===== */
 function paintCalendarDays() {
+  if (!calendar || !availability) return;
+
   calendar.removeAllEvents();
 
   Object.keys(availability).forEach(day => {
     if (availability[day] && availability[day].length > 0) {
       calendar.addEvent({
         start: day,
+        end: day,
+        allDay: true,
         display: "background",
         backgroundColor: "#e6f4f1"
       });
     }
   });
 }
+
 
 
 /* ===== RENDER SLOTS ===== */
