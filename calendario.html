@@ -2,11 +2,11 @@
 <html lang="es">
 <head>
   <meta charset="UTF-8" />
-  <title>Agenda | Disponibilidad</title>
+  <title>Dionis Hairs | Reserva de citas</title>
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
 
-  <!-- Fuente -->
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600&display=swap" rel="stylesheet">
+  <!-- Fuente premium -->
+  <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600&display=swap" rel="stylesheet">
 
   <!-- FullCalendar -->
   <link href="https://cdn.jsdelivr.net/npm/fullcalendar@6.1.11/index.global.min.css" rel="stylesheet">
@@ -14,7 +14,7 @@
 
   <style>
     :root {
-      --bg: #f6f7f9;
+      --bg: #f7f8fa;
       --card: #ffffff;
       --primary: #2f8f83;
       --muted: #9ca3af;
@@ -24,7 +24,7 @@
 
     * {
       box-sizing: border-box;
-      font-family: 'Inter', sans-serif;
+      font-family: 'Poppins', sans-serif;
     }
 
     body {
@@ -34,67 +34,80 @@
       color: var(--text);
     }
 
-    header {
-      margin-bottom: 16px;
+    /* ===== HEADER MARCA ===== */
+    .brand-header {
+      text-align: center;
+      margin-bottom: 24px;
     }
 
-    header h1 {
+    .brand-header h1 {
       margin: 0;
-      font-size: 1.4rem;
+      font-size: 1.9rem;
+      font-weight: 600;
+      letter-spacing: 0.5px;
     }
 
-    header p {
-      margin: 4px 0 0;
+    .brand-header p {
+      margin-top: 6px;
+      font-size: 0.95rem;
       color: var(--muted);
     }
 
+    /* ===== CARD ===== */
     .card {
       background: var(--card);
-      border-radius: 14px;
-      padding: 12px;
-      margin-bottom: 16px;
+      border-radius: 18px;
+      padding: 16px;
+      margin-bottom: 20px;
+      box-shadow: 0 8px 20px rgba(0,0,0,0.05);
     }
 
+    /* ===== SLOTS ===== */
     .slot {
       display: flex;
       justify-content: space-between;
-      padding: 12px;
-      border-bottom: 1px solid var(--border);
+      align-items: center;
+      padding: 14px 16px;
+      margin-bottom: 10px;
+      border-radius: 14px;
+      border: 1px solid var(--border);
+      background: #fafafa;
       cursor: pointer;
+      transition: all 0.2s ease;
     }
 
-    .slot:last-child {
-      border-bottom: none;
-    }
-
-    .slot.free {
-      color: var(--primary);
+    .slot:hover {
+      background: #f0fdfa;
     }
 
     .slot.selected {
       background: #e6f4f1;
-      font-weight: 600;
+      border-color: var(--primary);
+      font-weight: 500;
     }
 
     .badge {
-      font-size: 0.75rem;
-      padding: 4px 10px;
+      font-size: 0.7rem;
+      padding: 6px 12px;
       border-radius: 999px;
       background: #e6f4f1;
       color: var(--primary);
+      font-weight: 500;
     }
 
+    /* ===== BOTÓN ===== */
     button {
       width: 100%;
-      padding: 14px;
-      border-radius: 12px;
+      padding: 16px;
+      border-radius: 16px;
       border: none;
-      background: var(--primary);
+      background: linear-gradient(135deg, #2f8f83, #256f66);
       color: white;
       font-size: 1rem;
       font-weight: 600;
+      letter-spacing: 0.3px;
       cursor: pointer;
-      margin-top: 12px;
+      margin-top: 14px;
     }
 
     button:disabled {
@@ -102,6 +115,7 @@
       cursor: not-allowed;
     }
 
+    /* ===== FULLCALENDAR ===== */
     .fc {
       --fc-border-color: var(--border);
       --fc-button-bg-color: var(--primary);
@@ -110,13 +124,27 @@
       --fc-button-active-bg-color: #256f66;
       --fc-today-bg-color: #e6f4f1;
     }
+
+    .fc-toolbar-title {
+      font-size: 1.1rem;
+      font-weight: 500;
+    }
+
+    .fc-daygrid-day-number {
+      font-size: 0.85rem;
+      color: #374151;
+    }
+
+    .fc-daygrid-day-frame {
+      padding: 6px;
+    }
   </style>
 </head>
 <body>
 
-<header>
-  <h1>Disponibilidad</h1>
-  <p>Agenda sincronizada en tiempo real</p>
+<header class="brand-header">
+  <h1>Dionis Hairs</h1>
+  <p>Reserva tu cita fácilmente</p>
 </header>
 
 <div class="card">
@@ -126,7 +154,7 @@
 <div class="card">
   <h3 id="selectedDayTitle">Selecciona un día</h3>
   <div id="slots"></div>
-  <button id="reserveBtn" style="display:none;">Reservar</button>
+  <button id="reserveBtn" style="display:none;">Confirmar reserva</button>
 </div>
 
 <script>
@@ -206,7 +234,7 @@ function renderSlots(day) {
 
   availability[day].forEach(time => {
     const div = document.createElement("div");
-    div.className = "slot free";
+    div.className = "slot";
     div.innerHTML = `
       <span>${time}</span>
       <span class="badge">Disponible</span>
@@ -264,7 +292,6 @@ document.addEventListener('DOMContentLoaded', function () {
     locale: 'es',
     height: 'auto',
 
-    /* 🔒 LÍMITE: SOLO 1 MES DESDE HOY */
     validRange: function() {
       const start = new Date();
       start.setHours(0,0,0,0);
@@ -307,6 +334,7 @@ document.addEventListener('DOMContentLoaded', function () {
 
 </body>
 </html>
+
 
 
 
