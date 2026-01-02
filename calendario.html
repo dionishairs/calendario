@@ -206,20 +206,56 @@
   </div>
 
 <script>
-/* ================== UID DESDE WHATSAPP ================== */
+/* ================== TOKEN DESDE WHATSAPP ================== */
 const params = new URLSearchParams(window.location.search);
-const userId = params.get("uid");
+const token = params.get("token");
 
-const WEBHOOK_CALENDARIO = "https://dionis-n8n.2vscvg.easypanel.host/webhook/calendario";
-const WEBHOOK_RESERVAR   = "https://dionis-n8n.2vscvg.easypanel.host/webhook/reservar";
+const WEBHOOK_VALIDAR     = "https://dionis-n8n.2vscvg.easypanel.host/webhook/validar-token";
+const WEBHOOK_CALENDARIO  = "https://dionis-n8n.2vscvg.easypanel.host/webhook/calendario";
+const WEBHOOK_RESERVAR    = "https://dionis-n8n.2vscvg.easypanel.host/webhook/reservar";
 
 let availability = {};
 let calendar;
+let telefonoAutorizado = null;
 
 let selectedDay = null;
 let selectedTime = null;
 
-/* ===== CARGAR DISPONIBILIDAD ===== */
+/* ================== BLOQUEO INICIAL ================== */
+document.body.style.opacity = "0.4";
+
+/* ================== VALIDAR TOKEN ================== */
+async function validarToken() {
+  if (!token) {
+    bloquear("❌ Acceso no autorizado");
+    return;
+  }
+
+  const res = await fetch(`${WEBHOOK_VALIDAR}?token=${token}`);
+  const data = await res.json();
+
+  if (!data.ok) {
+    bloquear(data.message || "❌ Acceso denegado");
+    return;
+  }
+
+  // ✅ Token válido
+  telefonoAutorizado = data.telefono;
+  document.body.style.opacity = "1";
+  iniciarCalendario();
+}
+
+/* ================== BLOQUEAR UI ================== */
+function bloquear(mensaje) {
+  document.body.innerHTML = `
+    <div style="padding:40px;text-align:center">
+      <h2>${mensaje}</h2>
+      <p>Si necesitas una nueva cita, escríbenos por WhatsApp.</p>
+    </div>
+  `;
+}
+
+/* ================== CARGAR DISPONIBILIDAD ================== */
 async function loadAvailability(from, to) {
   const res = await fetch(
     `${WEBHOOK_CALENDARIO}?from=${from}&to=${to}&servicio=60`
@@ -235,25 +271,16 @@ async function loadAvailability(from, to) {
   paintCalendarDays();
 }
 
-/* ===== PINTAR DÍAS CON DISPONIBILIDAD ===== */
+/* ================== PINTAR DÍAS ================== */
 function paintCalendarDays() {
   if (!calendar || !availability) return;
 
   calendar.removeAllEvents();
 
   Object.keys(availability).forEach(day => {
-    if (availability[day] && availability[day].length > 0) {
-
-      const [y, m, d] = day.split("-").map(Number);
-      const endDate = new Date(y, m - 1, d + 1);
-      const endDay =
-        endDate.getFullYear() + "-" +
-        String(endDate.getMonth() + 1).padStart(2, "0") + "-" +
-        String(endDate.getDate()).padStart(2, "0");
-
+    if (availability[day]?.length > 0) {
       calendar.addEvent({
         start: day,
-        end: endDay,
         allDay: true,
         display: "background",
         backgroundColor: "#e6f4f1"
@@ -262,7 +289,7 @@ function paintCalendarDays() {
   });
 }
 
-/* ===== RENDER SLOTS ===== */
+/* ================== RENDER SLOTS ================== */
 function renderSlots(day) {
   const slotsEl = document.getElementById("slots");
   const titleEl = document.getElementById("selectedDayTitle");
@@ -275,7 +302,7 @@ function renderSlots(day) {
   titleEl.textContent = "Horas disponibles · " + day;
   slotsEl.innerHTML = "";
 
-  if (!availability[day] || availability[day].length === 0) {
+  if (!availability[day]?.length) {
     slotsEl.innerHTML = "<p>No hay disponibilidad</p>";
     return;
   }
@@ -292,7 +319,7 @@ function renderSlots(day) {
   });
 }
 
-/* ===== SELECCIONAR SLOT ===== */
+/* ================== SELECCIONAR SLOT ================== */
 function selectSlot(el, day, time) {
   document.querySelectorAll(".slot").forEach(s => s.classList.remove("selected"));
   el.classList.add("selected");
@@ -306,18 +333,18 @@ function selectSlot(el, day, time) {
   document.getElementById("reserveBtn").style.display = "block";
 }
 
-/* ===== RESERVAR ===== */
+/* ================== RESERVAR ================== */
 async function reserveSlot() {
-  if (!selectedDay || !selectedTime || !userId) {
+  if (!selectedDay || !selectedTime || !telefonoAutorizado) {
     alert("No se ha podido identificar al usuario.");
     return;
   }
 
   const payload = {
-    userId,
-    day: selectedDay,
-    time: selectedTime,
-    service: 60
+    telefono: telefonoAutorizado,
+    dia: selectedDay,
+    hora: selectedTime,
+    token
   };
 
   await fetch(WEBHOOK_RESERVAR, {
@@ -326,59 +353,46 @@ async function reserveSlot() {
     body: JSON.stringify(payload)
   });
 
-  alert("Reserva enviada. Te confirmaremos por WhatsApp.");
+  alert("✅ Cita confirmada. Te esperamos.");
+  location.reload();
 }
 
 document.getElementById("reserveBtn").onclick = reserveSlot;
 
-/* ===== INIT CALENDAR ===== */
-document.addEventListener('DOMContentLoaded', function () {
-  const calendarEl = document.getElementById('calendar');
+/* ================== INIT CALENDAR ================== */
+function iniciarCalendario() {
+  const calendarEl = document.getElementById("calendar");
 
   calendar = new FullCalendar.Calendar(calendarEl, {
     initialView: 'dayGridMonth',
     locale: 'es',
     height: 'auto',
 
-    validRange: function() {
+    validRange() {
       const start = new Date();
-      start.setHours(0,0,0,0);
-
       const end = new Date(start);
       end.setMonth(end.getMonth() + 1);
-
       return { start, end };
     },
 
-    datesSet: function(info) {
-      const today = new Date();
-      today.setHours(0,0,0,0);
-
-      const start = new Date(info.startStr);
-      const end   = new Date(info.endStr);
-      const fromDate = start < today ? today : start;
-
-      const from =
-        fromDate.getFullYear() + "-" +
-        String(fromDate.getMonth() + 1).padStart(2, "0") + "-" +
-        String(fromDate.getDate()).padStart(2, "0");
-
-      const to =
-        end.getFullYear() + "-" +
-        String(end.getMonth() + 1).padStart(2, "0") + "-" +
-        String(end.getDate()).padStart(2, "0");
-
+    datesSet(info) {
+      const from = info.startStr.substring(0,10);
+      const to   = info.endStr.substring(0,10);
       loadAvailability(from, to);
     },
 
-    dateClick: function(info) {
+    dateClick(info) {
       renderSlots(info.dateStr);
     }
   });
 
   calendar.render();
-});
+}
+
+/* ================== START ================== */
+document.addEventListener("DOMContentLoaded", validarToken);
 </script>
+
 
 </body>
 </html>
