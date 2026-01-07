@@ -1,0 +1,309 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <title>Centro Estética | Reserva de citas</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+
+  <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600&display=swap" rel="stylesheet">
+  <link href="https://cdn.jsdelivr.net/npm/fullcalendar@6.1.11/index.global.min.css" rel="stylesheet">
+  <script src="https://cdn.jsdelivr.net/npm/fullcalendar@6.1.11/index.global.min.js"></script>
+
+  <style>
+    :root {
+      --bg:#0b0c0c;
+      --card:#111212;
+      --accent:#c6a75e;
+      --accent-soft:#e2d3a3;
+      --text:#f5f5f5;
+      --border:#1f1f1f;
+    }
+
+    *{box-sizing:border-box;font-family:'Poppins',sans-serif}
+    body{margin:0;background:var(--bg);color:var(--text);padding:18px}
+
+    .card{
+      background:rgba(17,18,18,.9);
+      border-radius:20px;
+      padding:18px;
+      margin-bottom:22px;
+      border:1px solid var(--border);
+      box-shadow:0 20px 40px rgba(0,0,0,.6)
+    }
+
+    h3{margin-top:0;color:var(--accent-soft)}
+
+    .slot{
+      display:flex;
+      justify-content:space-between;
+      align-items:center;
+      padding:14px 16px;
+      margin-bottom:10px;
+      border-radius:14px;
+      border:1px solid var(--border);
+      background:#0f1010;
+      cursor:pointer;
+      transition:.2s
+    }
+    .slot:hover{background:#151616}
+    .slot.selected{
+      background:rgba(198,167,94,.15);
+      border-color:var(--accent)
+    }
+
+    .badge{
+      font-size:.7rem;
+      padding:6px 12px;
+      border-radius:999px;
+      background:rgba(198,167,94,.15);
+      color:var(--accent)
+    }
+
+    button{
+      width:100%;
+      padding:16px;
+      border-radius:16px;
+      border:none;
+      background:linear-gradient(135deg,#c6a75e,#a8893f);
+      color:#0b0c0c;
+      font-weight:600;
+      cursor:pointer;
+      margin-top:16px
+    }
+
+    .fc{
+      --fc-border-color:var(--border);
+      --fc-today-bg-color:rgba(198,167,94,.18);
+      --fc-button-bg-color:var(--accent);
+      --fc-button-border-color:var(--accent);
+      --fc-button-text-color:#0b0c0c
+    }
+  </style>
+</head>
+
+<body>
+
+<div class="card">
+  <h3>Servicio</h3>
+  <div id="services"></div>
+</div>
+
+<div class="card" id="workersCard" style="display:none">
+  <h3>Profesional</h3>
+  <div id="workers"></div>
+</div>
+
+<div class="card" id="calendarCard" style="display:none">
+  <div id="calendar"></div>
+</div>
+
+<div class="card">
+  <h3 id="selectedDayTitle">Selecciona un día</h3>
+  <div id="slots"></div>
+  <button id="reserveBtn" style="display:none">Confirmar reserva</button>
+</div>
+
+<script>
+/* ================== CONFIG ================== */
+const params = new URLSearchParams(window.location.search);
+const token = params.get("token");
+
+const WEBHOOK_VALIDAR     = "https://dionis-n8n.2vscvg.easypanel.host/webhook/validar-token-estetica";
+const WEBHOOK_CALENDARIO  = "https://dionis-n8n.2vscvg.easypanel.host/webhook/estetica-visual";
+const WEBHOOK_RESERVAR    = "https://dionis-n8n.2vscvg.easypanel.host/webhook/estetica-reservar";
+
+/* ================== DATA ================== */
+const SERVICES = [
+  { id:"facial", name:"Tratamiento facial", duration:60 },
+  { id:"unas", name:"Uñas", duration:45 },
+  { id:"laser", name:"Láser", duration:30 }
+];
+
+const WORKERS = [
+  { id:"ana", name:"Ana" },
+  { id:"laura", name:"Laura" }
+];
+
+let selectedService = null;
+let selectedWorker  = null;
+let availability = {};
+let calendar;
+let telefonoAutorizado = null;
+let selectedDay = null;
+let selectedTime = null;
+
+document.body.style.opacity = "0.4";
+
+/* ================== VALIDAR TOKEN ================== */
+async function validarToken() {
+  if (!token) return bloquear("❌ Acceso no autorizado");
+
+  const res = await fetch(`${WEBHOOK_VALIDAR}?token=${token}`);
+  const data = await res.json();
+
+  if (!data.ok) return bloquear("❌ Token inválido");
+
+  telefonoAutorizado = data.telefono;
+  document.body.style.opacity = "1";
+  renderServices();
+}
+
+/* ================== BLOQUEAR UI ================== */
+function bloquear(mensaje) {
+  document.body.innerHTML = `
+    <div style="padding:40px;text-align:center">
+      <h2>${mensaje}</h2>
+      <p>Si necesitas una nueva cita, escríbenos por WhatsApp.</p>
+    </div>
+  `;
+}
+
+/* ================== SERVICIOS ================== */
+function renderServices() {
+  const el = document.getElementById("services");
+  el.innerHTML = "";
+
+  SERVICES.forEach(service => {
+    const div = document.createElement("div");
+    div.className = "slot";
+    div.innerHTML = `
+      <span>${service.name}</span>
+      <span class="badge">${service.duration} min</span>
+    `;
+    div.onclick = () => {
+      document.querySelectorAll("#services .slot")
+        .forEach(s => s.classList.remove("selected"));
+      div.classList.add("selected");
+
+      selectedService = service;
+      document.getElementById("workersCard").style.display = "block";
+      renderWorkers();
+    };
+    el.appendChild(div);
+  });
+}
+
+/* ================== PROFESIONALES ================== */
+function renderWorkers() {
+  const el = document.getElementById("workers");
+  el.innerHTML = "";
+
+  WORKERS.forEach(worker => {
+    const div = document.createElement("div");
+    div.className = "slot";
+    div.innerHTML = `<span>${worker.name}</span>`;
+    div.onclick = () => {
+      document.querySelectorAll("#workers .slot")
+        .forEach(s => s.classList.remove("selected"));
+      div.classList.add("selected");
+
+      selectedWorker = worker;
+      document.getElementById("calendarCard").style.display = "block";
+      iniciarCalendario();
+    };
+    el.appendChild(div);
+  });
+}
+
+/* ================== DISPONIBILIDAD ================== */
+async function loadAvailability(from, to) {
+  const res = await fetch(
+    `${WEBHOOK_CALENDARIO}?from=${from}&to=${to}&servicio=${selectedService.id}&duracion=${selectedService.duration}&worker=${selectedWorker.id}`
+  );
+
+  const data = await res.json();
+  availability = data?.[0]?.days || {};
+
+  calendar.removeAllEvents();
+  Object.keys(availability).forEach(day => {
+    if (availability[day]?.length) {
+      calendar.addEvent({
+        start: day,
+        allDay: true,
+        display: "background"
+      });
+    }
+  });
+}
+
+/* ================== SLOTS ================== */
+function renderSlots(day) {
+  selectedDay = day;
+  selectedTime = null;
+
+  const el = document.getElementById("slots");
+  const btn = document.getElementById("reserveBtn");
+
+  el.innerHTML = "";
+  btn.style.display = "none";
+
+  if (!availability[day]?.length) {
+    el.innerHTML = "<p>No hay disponibilidad</p>";
+    return;
+  }
+
+  availability[day].forEach(time => {
+    const div = document.createElement("div");
+    div.className = "slot";
+    div.innerHTML = `
+      <span>${time}</span>
+      <span class="badge">Disponible</span>
+    `;
+    div.onclick = () => {
+      document.querySelectorAll("#slots .slot")
+        .forEach(s => s.classList.remove("selected"));
+      div.classList.add("selected");
+
+      selectedTime = time;
+      btn.style.display = "block";
+    };
+    el.appendChild(div);
+  });
+}
+
+/* ================== CALENDARIO ================== */
+function iniciarCalendario() {
+  if (calendar) return;
+
+  calendar = new FullCalendar.Calendar(
+    document.getElementById("calendar"),
+    {
+      initialView: "dayGridMonth",
+      locale: "es",
+      height: "auto",
+      datesSet: info =>
+        loadAvailability(info.startStr.slice(0,10), info.endStr.slice(0,10)),
+      dateClick: info => renderSlots(info.dateStr)
+    }
+  );
+
+  calendar.render();
+}
+
+/* ================== RESERVAR ================== */
+document.getElementById("reserveBtn").onclick = async () => {
+  const payload = {
+    telefono: telefonoAutorizado,
+    dia: selectedDay,
+    hora: selectedTime,
+    servicio: selectedService.id,
+    duracion: selectedService.duration,
+    trabajador: selectedWorker.id,
+    token
+  };
+
+  await fetch(WEBHOOK_RESERVAR, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(payload)
+  });
+
+  alert("✅ Cita confirmada. Te esperamos.");
+  location.reload();
+};
+
+/* ================== START ================== */
+document.addEventListener("DOMContentLoaded", validarToken);
+</script>
+</body>
+</html>
