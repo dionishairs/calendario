@@ -305,3 +305,5 @@ document.getElementById("reserveBtn").onclick = async () => {
 /* ================== START ================== */
 document.addEventListener("DOMContentLoaded", validarToken);
 </script>
+</body>
+</html>
