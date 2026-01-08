@@ -115,13 +115,13 @@ const WEBHOOK_RESERVAR    = "https://dionis-n8n.2vscvg.easypanel.host/webhook/es
 /* ================== DATA ================== */
 const SERVICES = [
   { id:"facial", name:"Tratamiento facial", duration:60 },
-  { id:"unas", name:"Uñas", duration:45 },
-  { id:"laser", name:"Láser", duration:30 }
+  { id:"unas",   name:"Uñas",               duration:45 },
+  { id:"laser",  name:"Láser",              duration:30 }
 ];
 
 const WORKERS = [
   { id:"garazi", name:"Garazi" },
-  { id:"laura", name:"Laura" }
+  { id:"laura",  name:"Laura" }
 ];
 
 let selectedService = null;
@@ -170,15 +170,25 @@ function renderServices() {
       <span>${service.name}</span>
       <span class="badge">${service.duration} min</span>
     `;
+
     div.onclick = () => {
       document.querySelectorAll("#services .slot")
         .forEach(s => s.classList.remove("selected"));
       div.classList.add("selected");
 
       selectedService = service;
+      selectedDay = null;
+      selectedTime = null;
+
       document.getElementById("workersCard").style.display = "block";
+      document.getElementById("calendarCard").style.display = "none";
+
       renderWorkers();
+
+      // 🔁 si ya hay calendario, recargar disponibilidad
+      if (calendar && selectedWorker) recargarCalendario();
     };
+
     el.appendChild(div);
   });
 }
@@ -192,29 +202,57 @@ function renderWorkers() {
     const div = document.createElement("div");
     div.className = "slot";
     div.innerHTML = `<span>${worker.name}</span>`;
+
     div.onclick = () => {
       document.querySelectorAll("#workers .slot")
         .forEach(s => s.classList.remove("selected"));
       div.classList.add("selected");
 
       selectedWorker = worker;
+      selectedDay = null;
+      selectedTime = null;
+
       document.getElementById("calendarCard").style.display = "block";
-      iniciarCalendario();
+
+      if (!calendar) {
+        iniciarCalendario();
+      } else {
+        // 🔁 recarga directa
+        recargarCalendario();
+      }
     };
+
     el.appendChild(div);
   });
 }
 
+/* ================== RECARGAR CALENDARIO ================== */
+function recargarCalendario() {
+  if (!calendar || !selectedService || !selectedWorker) return;
+
+  const view = calendar.view;
+  const from = view.activeStart.toISOString().slice(0,10);
+  const to   = view.activeEnd.toISOString().slice(0,10);
+
+  loadAvailability(from, to);
+}
+
 /* ================== DISPONIBILIDAD ================== */
 async function loadAvailability(from, to) {
+  if (!selectedService || !selectedWorker) return;
+
   const res = await fetch(
-    `${WEBHOOK_CALENDARIO}?from=${from}&to=${to}&servicio=${selectedService.id}&duracion=${selectedService.duration}&worker=${selectedWorker.id}`
+    `${WEBHOOK_CALENDARIO}?from=${from}&to=${to}` +
+    `&servicio=${selectedService.id}` +
+    `&duracion=${selectedService.duration}` +
+    `&worker=${selectedWorker.id}`
   );
 
   const data = await res.json();
-  availability = data?.[0]?.days || {};
+  availability = data?.days || data?.[0]?.days || {};
 
   calendar.removeAllEvents();
+
   Object.keys(availability).forEach(day => {
     if (availability[day]?.length) {
       calendar.addEvent({
@@ -249,6 +287,7 @@ function renderSlots(day) {
       <span>${time}</span>
       <span class="badge">Disponible</span>
     `;
+
     div.onclick = () => {
       document.querySelectorAll("#slots .slot")
         .forEach(s => s.classList.remove("selected"));
@@ -257,23 +296,30 @@ function renderSlots(day) {
       selectedTime = time;
       btn.style.display = "block";
     };
+
     el.appendChild(div);
   });
 }
 
 /* ================== CALENDARIO ================== */
 function iniciarCalendario() {
-  if (calendar) return;
-
   calendar = new FullCalendar.Calendar(
     document.getElementById("calendar"),
     {
       initialView: "dayGridMonth",
       locale: "es",
       height: "auto",
-      datesSet: info =>
-        loadAvailability(info.startStr.slice(0,10), info.endStr.slice(0,10)),
-      dateClick: info => renderSlots(info.dateStr)
+
+      datesSet(info) {
+        loadAvailability(
+          info.startStr.slice(0,10),
+          info.endStr.slice(0,10)
+        );
+      },
+
+      dateClick(info) {
+        renderSlots(info.dateStr);
+      }
     }
   );
 
@@ -305,5 +351,6 @@ document.getElementById("reserveBtn").onclick = async () => {
 /* ================== START ================== */
 document.addEventListener("DOMContentLoaded", validarToken);
 </script>
+
 </body>
 </html>
